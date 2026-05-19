@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survival Island - The Lone Isle MVP</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Courier Prime', 'Courier', monospace;
+            image-rendering: pixelated;
+            user-select: none;
+        }
+
+        body {
+            background-color: #0b0e14;
+            color: #f0f4f8;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #game-layout {
+            display: grid;
+            grid-template-columns: 600px 320px;
+            grid-template-rows: 550px 130px;
+            gap: 16px;
+            background-color: #181d26;
+            padding: 16px;
+            border: 4px solid #3b4859;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            border-radius: 4px;
+        }
+
+        canvas {
+            grid-column: 1;
+            grid-row: 1;
+            border: 3px solid #4a5d78;
+            border-radius: 2px;
+        }
+
+        #control-panel {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            background-color: #11141a;
+            border: 3px solid #3b4859;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #rpg-dialogue-box {
+            grid-column: 1;
+            grid-row: 2;
+            background-color: #0d1117;
+            border: 3px solid #ffffff;
+            border-radius: 4px;
+            padding: 12px 20px;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+        }
+
+        #rpg-text {
+            color: #ffffff;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+            width: 100%;
+        }
+
+        #rpg-dialogue-box::after {
+            content: "▼";
+            position: absolute;
+            bottom: 6px;
+            right: 12px;
+            color: #00ff00;
+            font-size: 10px;
+            animation: blink 0.8s infinite alternate;
+        }
+
+        @keyframes blink { from { opacity: 0; } to { opacity: 1; } }
+
+        .hud-title {
+            font-size: 11px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 16px;
+            background-color: #2d3748;
+            border: 2px solid #4a5d78;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 100%;
+            transition: width 0.2s ease-out;
+        }
+
+        .bar-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #fff;
+            top: 0;
+            line-height: 12px;
+            text-shadow: 1px 1px 1px #000;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 5px;
+        }
+
+        .inv-slot {
+            background-color: #1a202c;
+            border: 2px solid #4a5d78;
+            border-radius: 4px;
+            padding: 8px 4px;
+            text-align: center;
+            position: relative;
+        }
+
+        .inv-name { font-size: 9px; color: #a0aec0; text-transform: uppercase; display: block; }
+        .inv-qty { font-size: 16px; color: #ffff00; font-weight: bold; margin-top: 2px; display: block; }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 4px;
+        }
+
+        button.craft-icon-btn {
+            background-color: #141920;
+            color: #e2e8f0;
+            border: 2px solid #4a5d78;
+            padding: 6px 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 11px;
+            transition: all 0.1s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button.craft-icon-btn:hover:not(:disabled) {
+            background-color: #2b3d54;
+            border-color: #00ff00;
+        }
+
+        .craft-name { font-weight: bold; margin-bottom: 2px; }
+        .craft-cost { font-size: 8px; color: #8da3c2; line-height: 1.2; }
+
+        button.craft-icon-btn:disabled {
+            background-color: #1a202c;
+            border-color: #2a2f3d;
+            color: #4a5568;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        button.craft-icon-btn:disabled .craft-cost { color: #4a5568; }
+
+        button.craft-icon-btn:disabled::after {
+            content: "✖";
+            color: #e53e3e;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+        }
+
+        #time-widget {
+            background: #1a202c;
+            padding: 6px;
+            border-radius: 4px;
+            border: 2px solid #3b4859;
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        #level-info-widget {
+            background: #11141a;
+            padding: 8px;
+            border-radius: 4px;
+            border: 2px solid #3b4859;
+            font-size: 11px;
+            text-align: left;
+            margin-bottom: 5px;
+        }
+
+        #controls-guide-panel {
+            background: #1a202c;
+            padding: 8px;
+            border-radius: 4px;
+            border: 2px solid #3b4859;
+            font-size: 11px;
+            color: #a0aec0;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-layout">
+    <canvas id="gameCanvas" width="600" height="550"></canvas>
+
+    <div id="control-panel">
+        <div>
+            <div id="time-widget">
+                DAY <span id="ui-day" style="color:#ffff00; font-weight:bold;">1</span> 
+                | Phase: <span id="ui-phase" style="color:#00ffff; font-weight:bold;">DAYTIME</span>
+                (<span id="ui-timer">120</span>s left)
+            </div>
+            <div id="level-info-widget" style="display:none;">
+                <span style="color:#e53e3e; font-weight:bold; font-size:12px;">LEVEL 3 - BOSS WAVE</span><br>
+                <span style="color:#cbd5e0; margin-top:2px; display:inline-block;">MONSTERS: 4 Mini, 1 Boss</span>
+            </div>
+        </div>
+
+        <div>
+            <div class="hud-title">Vitals</div>
+            <div class="bar-container">
+                <div id="bar-hp" class="bar-fill" style="background-color: #e53e3e;"></div>
+                <div class="bar-text">HP: <span id="txt-hp">100</span>/100</div>
+            </div>
+            <div class="bar-container">
+                <div id="bar-belly" class="bar-fill" style="background-color: #dd6b20;"></div>
+                <div class="bar-text">BELLY: <span id="txt-belly">100</span>/100</div>
+            </div>
+            <div style="font-size: 10px; color: #cbd5e0; margin-top: 4px; display: flex; justify-content: space-between;">
+                <span>Wp: <span id="ui-weapon" style="color:#4fd1c5">Fist (Dmg: 1)</span></span>
+                <span>Am: <span id="ui-armor" style="color:#4fd1c5">None (Def: 0)</span></span>
+            </div>
+        </div>
+
+        <div>
+            <div class="hud-title">Inventory Slots</div>
+            <div class="inventory-grid">
+                <div class="inv-slot"><span class="inv-name">Wood</span><span id="inv-wood" class="inv-qty">0</span></div>
+                <div class="inv-slot"><span class="inv-name">Stone</span><span id="inv-stone" class="inv-qty">0</span></div>
+                <div class="inv-slot"><span class="inv-name">Vine</span><span id="inv-vine" class="inv-qty">0</span></div>
+                <div class="inv-slot"><span class="inv-name">Coconut</span><span id="inv-coconut" class="inv-qty">0</span></div>
+                <div class="inv-slot"><span class="inv-name">Fish</span><span id="inv-fish" class="inv-qty">0</span></div>
+                <div class="inv-slot"><span class="inv-name">Stick</span><span id="inv-stick" class="inv-qty">0</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top: 4px;">
+                <button class="craft-icon-btn" id="btn-eat-coconut" onclick="eatFood('coconut')" style="padding:4px; text-align:center;">
+                    <span class="craft-name">Eat Coconut</span>
+                    <span class="craft-cost">+30 Belly</span>
+                </button>
+                <button class="craft-icon-btn" id="btn-eat-fish" onclick="eatFood('fish')" style="padding:4px; text-align:center;">
+                    <span class="craft-name">Eat Fish</span>
+                    <span class="craft-cost">+60 Belly</span>
+                </button>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+            <div class="hud-title">Crafting Blueprint</div>
+            <div class="recipe-grid">
+                <button class="craft-icon-btn" id="rcp-stick" onclick="craft('stick')">
+                    <span class="craft-name">Stick</span>
+                    <span class="craft-cost">1 Wood</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-wood_pickaxe" onclick="craft('wood_pickaxe')">
+                    <span class="craft-name">Pickaxe</span>
+                    <span class="craft-cost">12 Wood</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-fishing_pole" onclick="craft('fishing_pole')">
+                    <span class="craft-name">Fishing Pole</span>
+                    <span class="craft-cost">1 Stick, 1 Vine</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-wood_sword" onclick="craft('wood_sword')">
+                    <span class="craft-name">Wood Sword</span>
+                    <span class="craft-cost">9 Wood, 1 Coconut</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-stone_sword" onclick="craft('stone_sword')">
+                    <span class="craft-name">Stone Sword</span>
+                    <span class="craft-cost">9 Stone, 1 Wood</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-wood_armor" onclick="craft('wood_armor')">
+                    <span class="craft-name">Wood Armor</span>
+                    <span class="craft-cost">30 Wood</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-stone_armor" onclick="craft('stone_armor')">
+                    <span class="craft-name">Stone Armor</span>
+                    <span class="craft-cost">30 Stone</span>
+                </button>
+                <button class="craft-icon-btn" id="rcp-boat" onclick="craft('boat')" style="border-color:#ecc94b; color:#ecc94b; grid-column:span 2; background:#2d2510;">
+                    <span class="craft-name">Build Escape Boat</span>
+                    <span class="craft-cost" style="color:#d69e2e;">50 Wood, 7 Stone, 4 Vine</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="controls-guide-panel">
+            <div class="hud-title" style="color:#a0aec0; font-size:10px;">Controls Guide</div>
+            [WASD / Arrows] Move<br>
+            [Space] Attack / Harvest
+        </div>
+    </div>
+
+    <div id="rpg-dialogue-box">
+        <p id="rpg-text">You washed ashore on a mysterious desert island. Day is short, collect resources and prepare your weapons before nightfalls...</p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let game = {
+        hp: 100, belly: 100, day: 1, timer: 120, phase: 'DAY',
+        inventory: { wood: 0, stone: 0, vine: 0, coconut: 0, fish: 0, stick: 0 },
+        weapon: 'Fist', armor: 'None',
+        hasPickaxe: false, hasFishingPole: false,
+        player: { x: 300, y: 275, size: 16, speed: 3, angle: 0, isAttacking: false, attackTimer: 0, kbX: 0, kbY: 0, flashFrames: 0 },
+        keys: {}, resources: [], monsters: []
+    };
+
+    const islandGrassPointsNormalized = [
+        {x: 0.1, y: 0.35}, {x: 0.15, y: 0.25}, {x: 0.3, y: 0.15}, {x: 0.45, y: 0.1}, 
+        {x: 0.6, y: 0.15}, {x: 0.75, y: 0.2}, {x: 0.85, y: 0.3}, {x: 0.9, y: 0.45}, 
+        {x: 0.85, y: 0.6}, {x: 0.75, y: 0.75}, {x: 0.6, y: 0.85}, {x: 0.45, y: 0.9}, 
+        {x: 0.3, y: 0.85}, {x: 0.15, y: 0.75}, {x: 0.1, y: 0.6}
+    ];
+    const mapCenter = {x: 300, y: 275};
+    let islandGrassPointsScaled = [];
+    let islandSandPointsScaled = [];
+    let islandSandBoundingBox = {minX: 600, maxX: 0, minY: 550, maxY: 0};
+
+    function initializeShapes() {
+        islandGrassPointsScaled = islandGrassPointsNormalized.map(p => ({x: p.x * 600, y: p.y * 550}));
+        islandSandPointsScaled = islandGrassPointsScaled.map(p => {
+            const sx = mapCenter.x + (p.x - mapCenter.x) * 1.05;
+            const sy = mapCenter.y + (p.y - mapCenter.y) * 1.05;
+            islandSandBoundingBox.minX = Math.min(islandSandBoundingBox.minX, sx);
+            islandSandBoundingBox.maxX = Math.max(islandSandBoundingBox.maxX, sx);
+            islandSandBoundingBox.minY = Math.min(islandSandBoundingBox.minY, sy);
+            islandSandBoundingBox.maxY = Math.max(islandSandBoundingBox.maxY, sy);
+            return {x: sx, y: sy};
+        });
+    }
+
+    function isPointInPolygon(x, y, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i].x, yi = polygon[i].y;
+            const xj = polygon[j].x, yj = polygon[j].y;
+            const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    function getRandomPointOnIsland(polygonPoints, boundingBox) {
+        let x, y;
+        do {
+            x = Math.random() * (boundingBox.maxX - boundingBox.minX) + boundingBox.minX;
+            y = Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY;
+        } while (!isPointInPolygon(x, y, polygonPoints));
+        return {x, y};
+    }
+
+    function getRandomPointOnPerimeter(polygonPoints) {
+        const edgeIndex = Math.floor(Math.random() * polygonPoints.length);
+        const p1 = polygonPoints[edgeIndex];
+        const p2 = polygonPoints[(edgeIndex + 1) % polygonPoints.length];
+        const t = Math.random();
+        return { x: p1.x * (1 - t) + p2.x * t, y: p1.y * (1 - t) + p2.y * t };
+    }
+
+    function triggerRpgText(text) {
+        document.getElementById('rpg-text').innerText = text;
+    }
+
+    function spawnResources() {
+        game.resources = [];
+        for (let i = 0; i < 8; i++) {
+            const pt = getRandomPointOnIsland(islandGrassPointsScaled, islandSandBoundingBox);
+            // maxHp 用來顯示總耐久，hp 是剩餘耐久
+            game.resources.push({ id: 't'+i, type: 'tree', x: pt.x, y: pt.y, hp: 5, maxHp: 5, size: 20 });
+        }
+        for (let i = 0; i < 5; i++) {
+            const pt = getRandomPointOnIsland(islandGrassPointsScaled, islandSandBoundingBox);
+            game.resources.push({ id: 's'+i, type: 'stone', x: pt.x, y: pt.y, hp: 5, maxHp: 5, size: 16 });
+        }
+        for (let i = 0; i < 1; i++) {
+            const pt = getRandomPointOnIsland(islandGrassPointsScaled, islandSandBoundingBox);
+            // fishCount: 剩餘可釣次數，最多 2 次
+            game.resources.push({ id: 'p'+i, type: 'pond', x: pt.x, y: pt.y, size: 25, fishCount: 2 });
+        }
+    }
+
+    function spawnMonsters(countMini, countBoss) {
+        for (let i = 0; i < countMini; i++) {
+            const pt = getRandomPointOnPerimeter(islandSandPointsScaled);
+            game.monsters.push({ type: 'crawly', x: pt.x, y: pt.y, hp: 10, speed: 1.5, size: 14, lastAttack: 0, kbX: 0, kbY: 0 });
+        }
+        for (let i = 0; i < countBoss; i++) {
+            const pt = getRandomPointOnPerimeter(islandSandPointsScaled);
+            game.monsters.push({ type: 'boss_crawler', x: pt.x, y: pt.y, hp: 20, speed: 1.0, size: 28, lastAttack: 0, kbX: 0, kbY: 0 });
+        }
+    }
+
+    window.addEventListener("keydown", e => { game.keys[e.code] = true; if(e.code === "Space") handleAction(); });
+    window.addEventListener("keyup", e => game.keys[e.code] = false);
+
+    function handleAction() {
+        if (game.hp <= 0) return;
+        game.player.isAttacking = true;
+        game.player.attackTimer = 10; 
+
+        let reach = 35;
+        let ax = game.player.x + Math.cos(game.player.angle) * reach;
+        let ay = game.player.y + Math.sin(game.player.angle) * reach;
+
+        // 優先判定攻擊怪物
+        for (let i = game.monsters.length - 1; i >= 0; i--) {
+            let m = game.monsters[i];
+            if (Math.hypot(m.x - ax, m.y - ay) < m.size + 18) {
+                let dmg = game.weapon === 'Fist' ? 1 : (game.weapon === 'Wood Sword' ? 4 : (game.weapon === 'Stone Sword' ? 6 : 1));
+                m.hp -= dmg;
+                m.kbX = Math.cos(game.player.angle) * 12; m.kbY = Math.sin(game.player.angle) * 12; 
+                triggerRpgText(`* SMASH! You swung your weapon and dealt ${dmg} damage to the [${m.type==='boss_crawler'?'Boss Crawler':'Crawly'}]! *`);
+                if (m.hp <= 0) { 
+                    game.monsters.splice(i, 1); 
+                    triggerRpgText(`* Shhh... The [${m.type==='boss_crawler'?'Boss Crawler':'Crawly'}] collapsed to the ground and dissolved into dust. *`); 
+                }
+                return; 
+            }
+        }
+
+        // 採集資源
+        for (let i = game.resources.length - 1; i >= 0; i--) {
+            let r = game.resources[i];
+            if (Math.hypot(r.x - ax, r.y - ay) < r.size + 15) {
+
+                if (r.type === 'tree') {
+                    r.hp--;
+                    if (r.hp <= 0) {
+                        // ★ 只有最後一擊（HP歸零）才掉落資源
+                        let drops = [];
+                        // 必定掉落 3~5 木頭
+                        let woodAmt = 3 + Math.floor(Math.random() * 3);
+                        game.inventory.wood += woodAmt;
+                        drops.push(`Wood x${woodAmt}`);
+                        // 40% 機率掉椰子
+                        if (Math.random() < 0.40) { game.inventory.coconut += 1; drops.push("Coconut x1"); }
+                        // 30% 機率掉藤蔓
+                        if (Math.random() < 0.30) { game.inventory.vine += 1; drops.push("Vine x1"); }
+                        game.resources.splice(i, 1);
+                        triggerRpgText(`The tree finally fell! Drops: [${drops.join(", ")}]`);
+                    } else {
+                        // 還沒砍倒，只顯示提示，不掉資源
+                        triggerRpgText(`Chop Tree: The tree creaks... (${r.hp}/${r.maxHp} HP remaining, keep chopping!)`);
+                    }
+                } 
+                else if (r.type === 'stone') {
+                    if (!game.hasPickaxe) { triggerRpgText("This stone looks too sturdy. You need a [Wood Pickaxe] to break it."); return; }
+                    r.hp--;
+                    if (r.hp <= 0) {
+                        // ★ 只有最後一擊才掉落石頭
+                        let stoneAmt = 3 + Math.floor(Math.random() * 3);
+                        game.inventory.stone += stoneAmt;
+                        game.resources.splice(i, 1);
+                        triggerRpgText(`The boulder shattered! Drops: [Stone x${stoneAmt}]`);
+                    } else {
+                        // 還沒打碎，不掉資源
+                        triggerRpgText(`Mine Stone: Sparks fly... (${r.hp}/${r.maxHp} HP remaining, keep mining!)`);
+                    }
+                } 
+                else if (r.type === 'pond') {
+                    if (!game.hasFishingPole) { triggerRpgText("Fish ripple beneath the water. You need a [Fishing Pole] to catch them."); return; }
+                    
+                    // ★ 水池最多只能釣 2 次魚
+                    if (r.fishCount <= 0) {
+                        triggerRpgText("The pond looks barren. No fish remain — the water is still and empty.");
+                        return;
+                    }
+                    
+                    if (Math.random() < 0.60) {
+                        game.inventory.fish += 1;
+                        r.fishCount--;
+                        let remaining = r.fishCount > 0 ? ` (${r.fishCount} fish left in this pond)` : " (The pond is now completely fished out!)";
+                        triggerRpgText(`Fishing: Hooked! You pulled a fat [Fish +1] out of the pond!${remaining}`);
+                        if (r.fishCount <= 0) {
+                            // 水池枯竭但不移除，留著顯示枯竭狀態
+                        }
+                    } else {
+                        triggerRpgText(`Fishing: The float dipped, but the fish slipped away. (${r.fishCount} fish left in this pond)`);
+                    }
+                }
+                return;
+            }
+        }
+    }
+
+    function moveEntities() {
+        let dx = 0; let dy = 0;
+        if (game.keys["KeyW"] || game.keys["ArrowUp"]) dy = -1;
+        if (game.keys["KeyS"] || game.keys["ArrowDown"]) dy = 1;
+        if (game.keys["KeyA"] || game.keys["ArrowLeft"]) dx = -1;
+        if (game.keys["KeyD"] || game.keys["ArrowRight"]) dx = 1;
+
+        if (dx !== 0 || dy !== 0) {
+            game.player.angle = Math.atan2(dy, dx);
+        }
+
+        let targetX = game.player.x + dx * game.player.speed + game.player.kbX;
+        let targetY = game.player.y + dy * game.player.speed + game.player.kbY;
+
+        game.player.kbX *= 0.85; 
+        game.player.kbY *= 0.85; 
+
+        if (isPointInPolygon(targetX, game.player.y, islandSandPointsScaled)) {
+            game.player.x = targetX;
+        } else {
+            game.player.kbX = 0;
+        }
+        
+        if (isPointInPolygon(game.player.x, targetY, islandSandPointsScaled)) {
+            game.player.y = targetY;
+        } else {
+            game.player.kbY = 0;
+        }
+
+        if (game.player.flashFrames > 0) game.player.flashFrames--;
+
+        let now = Date.now();
+        for (let m of game.monsters) {
+            m.x += m.kbX; m.y += m.kbY; m.kbX *= 0.85; m.kbY *= 0.85;
+            let angle = Math.atan2(game.player.y - m.y, game.player.x - m.x);
+            m.x += Math.cos(angle) * m.speed; m.y += Math.sin(angle) * m.speed;
+
+            if (Math.hypot(game.player.x - m.x, game.player.y - m.y) < game.player.size + m.size) {
+                if (now - m.lastAttack > 1200) { 
+                    let baseDmg = m.type === 'boss_crawler' ? 12 : 6;
+                    let def = game.armor === 'None' ? 0 : (game.armor === 'Wood Armor' ? 2 : (game.armor === 'Stone Armor' ? 5 : 0));
+                    let finalDmg = Math.max(0, baseDmg - def);
+                    
+                    game.hp = Math.max(0, game.hp - finalDmg);
+                    game.player.flashFrames = 8; 
+
+                    game.player.kbX = Math.cos(angle) * 15; 
+                    game.player.kbY = Math.sin(angle) * 15;
+
+                    triggerRpgText(`* OUCH! The monster bit your shoulder! You sustained ${finalDmg} damage. *`);
+                    m.lastAttack = now;
+                    if (game.hp <= 0) gameOver("You collapsed into the dirt and faded into sleep...");
+                }
+            }
+        }
+    }
+
+    function gameTimerTick() {
+        if (game.hp <= 0) return;
+        game.timer--;
+
+        game.belly = Math.max(0, game.belly - 0.5);
+        if (game.belly <= 0) {
+            game.hp = Math.max(0, game.hp - 1); 
+            if (game.hp <= 0) gameOver("You starved to death on the lonely sands...");
+        }
+
+        if (game.timer <= 0) {
+            game.phase = 'NIGHT'; game.timer = 60;
+            triggerRpgText(`DAY ${game.day}: The sun sets... A strange stillness covers the island as horrifying beasts land from the sea and beach!`);
+            spawnMonsters(game.day === 1 ? 2 : 4, game.day === 3 ? 1 : 0);
+        }
+
+        checkDayNightChange();
+        updateUI();
+    }
+    
+    function checkDayNightChange() {
+        if (game.timer <= 0 && game.timer < 0) { 
+            game.phase = 'DAY'; game.timer = 120; 
+            game.day++;
+            triggerRpgText(`DAY ${game.day}: The sun rises. Fresh resources sprout across the island grass.`);
+            game.monsters = []; 
+            spawnResources();
+        }
+    }
+
+    function eatFood(type) {
+        if (type === 'coconut' && game.inventory.coconut > 0) {
+            game.inventory.coconut--; game.belly = Math.min(100, game.belly + 30);
+            triggerRpgText("You cracked open a fresh coconut. Delicious! Belly recovered +30.");
+        } else if (type === 'fish' && game.inventory.fish > 0) {
+            game.inventory.fish--; game.belly = Math.min(100, game.belly + 60);
+            triggerRpgText("You roasted a fish over a small fire. Belly recovered +60.");
+        }
+        updateUI();
+    }
+
+    function craft(item) {
+        let inv = game.inventory;
+        if (item === 'stick' && inv.wood >= 1) { inv.wood--; inv.stick++; triggerRpgText("Crafted: Stick!"); }
+        else if (item === 'fishing_pole' && inv.stick >= 1 && inv.vine >= 1) { inv.stick--; inv.vine--; game.hasFishingPole = true; triggerRpgText("Crafted: Fishing Pole! You can now go fishing."); }
+        else if (item === 'wood_pickaxe' && inv.wood >= 12) { inv.wood -= 12; game.hasPickaxe = true; triggerRpgText("Crafted: Wood Pickaxe! Boulders can now be mined."); }
+        else if (item === 'wood_sword' && inv.wood >= 9 && inv.coconut >= 1) { inv.wood -= 9; inv.coconut--; game.weapon = 'Wood Sword'; triggerRpgText("Equipped: Wood Sword (+3 Dmg)"); }
+        else if (item === 'stone_sword' && inv.stone >= 9 && inv.wood >= 1) { inv.stone -= 9; inv.wood--; game.weapon = 'Stone Sword'; triggerRpgText("Equipped: Stone Sword (+5 Dmg)"); }
+        else if (item === 'wood_armor' && inv.wood >= 30) { inv.wood -= 30; game.armor = 'Wood Armor'; triggerRpgText("Equipped: Wood Armor (-2 received Dmg)"); }
+        else if (item === 'stone_armor' && inv.stone >= 30) { inv.stone -= 30; game.armor = 'Stone Armor'; triggerRpgText("Equipped: Stone Armor (-5 Received Dmg)"); }
+        else if (item === 'boat' && inv.vine >= 4 && inv.wood >= 50 && inv.stone >= 7) { winGame(); }
+        else { triggerRpgText("Craft failed: Insufficient resources."); }
+        updateUI();
+    }
+
+    function updateUI() {
+        let inv = game.inventory;
+        document.getElementById('ui-day').innerText = game.day;
+        document.getElementById('ui-timer').innerText = game.timer;
+        document.getElementById('ui-phase').innerText = game.phase === 'DAY' ? 'DAYTIME' : 'NIGHTTIME';
+        document.getElementById('txt-hp').innerText = Math.ceil(game.hp);
+        document.getElementById('txt-belly').innerText = Math.ceil(game.belly);
+        document.getElementById('bar-hp').style.width = `${game.hp}%`;
+        document.getElementById('bar-belly').style.width = `${game.belly}%`;
+        document.getElementById('inv-wood').innerText = inv.wood;
+        document.getElementById('inv-stone').innerText = inv.stone;
+        document.getElementById('inv-vine').innerText = inv.vine;
+        document.getElementById('inv-coconut').innerText = inv.coconut;
+        document.getElementById('inv-fish').innerText = inv.fish;
+        document.getElementById('inv-stick').innerText = inv.stick;
+        let weaponDmg = game.weapon === 'Fist' ? 1 : (game.weapon === 'Wood Sword' ? 4 : (game.weapon === 'Stone Sword' ? 6 : 1));
+        document.getElementById('ui-weapon').innerText = `${game.weapon} (Dmg: ${weaponDmg})`;
+        let armorDef = game.armor === 'None' ? 0 : (game.armor === 'Wood Armor' ? 2 : (game.armor === 'Stone Armor' ? 5 : 0));
+        document.getElementById('ui-armor').innerText = `${game.armor} (Def: ${armorDef})`;
+        document.getElementById('btn-eat-coconut').disabled = inv.coconut <= 0;
+        document.getElementById('btn-eat-fish').disabled = inv.fish <= 0;
+        document.getElementById('rcp-stick').disabled = inv.wood < 1;
+        document.getElementById('rcp-fishing_pole').disabled = (inv.stick < 1 || inv.vine < 1);
+        document.getElementById('rcp-wood_pickaxe').disabled = inv.wood < 12;
+        document.getElementById('rcp-wood_sword').disabled = (inv.wood < 9 || inv.coconut < 1);
+        document.getElementById('rcp-stone_sword').disabled = (inv.stone < 9 || inv.wood < 1);
+        document.getElementById('rcp-wood_armor').disabled = inv.wood < 30;
+        document.getElementById('rcp-stone_armor').disabled = inv.stone < 30;
+        document.getElementById('rcp-boat').disabled = (inv.vine < 4 || inv.wood < 50 || inv.stone < 7);
+    }
+
+    function gameOver(reason) { alert(`[ GAME OVER ]\n${reason}`); location.reload(); }
+    function winGame() { alert(`[ ESCAPED THE ISLAND! ]\nYou successfully sailed your boat and navigated back to civilization on Day ${game.day}!`); location.reload(); }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = game.phase === 'DAY' ? "#2b6cb0" : "#102a43";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#ecc94b";
+        ctx.beginPath();
+        ctx.moveTo(islandSandPointsScaled[0].x, islandSandPointsScaled[0].y);
+        for(let pt of islandSandPointsScaled) ctx.lineTo(pt.x, pt.y);
+        ctx.closePath(); ctx.fill();
+        
+        ctx.fillStyle = "#2c5e3b";
+        ctx.beginPath();
+        ctx.moveTo(islandGrassPointsScaled[0].x, islandGrassPointsScaled[0].y);
+        for(let pt of islandGrassPointsScaled) ctx.lineTo(pt.x, pt.y);
+        ctx.closePath(); ctx.fill();
+
+        for (let r of game.resources) {
+            if (r.type === 'tree') {
+                ctx.fillStyle = "#1e3f20"; ctx.beginPath(); ctx.arc(r.x, r.y, r.size, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#6e3a17"; ctx.fillRect(r.x - 4, r.y - 4, 8, 8);
+                // HP 條顯示在資源上方
+                if (r.hp < r.maxHp) {
+                    ctx.fillStyle = "#555"; ctx.fillRect(r.x - 16, r.y - r.size - 8, 32, 5);
+                    ctx.fillStyle = "#22c55e"; ctx.fillRect(r.x - 16, r.y - r.size - 8, 32 * (r.hp / r.maxHp), 5);
+                }
+            } else if (r.type === 'stone') {
+                ctx.fillStyle = "#777"; ctx.fillRect(r.x - r.size/2, r.y - r.size/2, r.size, r.size);
+                ctx.fillStyle = "#555"; ctx.fillRect(r.x - r.size/2, r.y + r.size/4, r.size, r.size/4);
+                // HP 條
+                if (r.hp < r.maxHp) {
+                    ctx.fillStyle = "#555"; ctx.fillRect(r.x - 14, r.y - r.size/2 - 8, 28, 5);
+                    ctx.fillStyle = "#f59e0b"; ctx.fillRect(r.x - 14, r.y - r.size/2 - 8, 28 * (r.hp / r.maxHp), 5);
+                }
+            } else if (r.type === 'pond') {
+                // 水池枯竭時顏色變暗
+                ctx.fillStyle = r.fishCount <= 0 ? "#4a5568" : "#3a7da6";
+                ctx.beginPath(); ctx.arc(r.x, r.y, r.size, 0, Math.PI*2); ctx.fill();
+                if (r.fishCount > 0) {
+                    ctx.fillStyle = "#a8d3ed"; ctx.fillRect(r.x - 5, r.y - 2, 4, 2);
+                    // 顯示剩餘魚數
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 10px monospace";
+                    ctx.textAlign = "center";
+                    ctx.fillText(`Fish:${r.fishCount}`, r.x, r.y - r.size - 4);
+                } else {
+                    ctx.fillStyle = "#a0aec0"; ctx.font = "bold 9px monospace";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Empty", r.x, r.y - r.size - 4);
+                }
+            }
+        }
+
+        for (let m of game.monsters) {
+            if (m.type === 'crawly') {
+                ctx.fillStyle = "#4a0404"; 
+                for(let leg=0; leg<3; leg++){
+                    ctx.fillRect(m.x - 10, m.y + (leg-1)*8 - 1, 6, 2);
+                    ctx.fillRect(m.x + 4, m.y + (leg-1)*8 - 1, 6, 2);
+                }
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.size, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(m.x - 3, m.y - 3, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(m.x + 3, m.y - 3, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(m.x, m.y + 1, 2, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#1a0101"; ctx.fillRect(m.x-4, m.y+4, 8, 4);
+                ctx.fillStyle = "#4a0404"; for(let g=0; g<3; g++) ctx.fillRect(m.x-4 + g*3 + 1, m.y+4, 1, 4);
+            } else if (m.type === 'boss_crawler') {
+                ctx.fillStyle = "#4a0404";
+                for(let leg=0; leg<4; leg++){
+                    ctx.fillRect(m.x - 20, m.y + (leg-1.5)*10 - 2, 8, 4);
+                    ctx.fillRect(m.x + 12, m.y + (leg-1.5)*10 - 2, 8, 4);
+                }
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.size, 0, Math.PI*2); ctx.fill();
+                ctx.save();
+                ctx.strokeStyle = "#cbd5e0"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(m.x - 15, m.y + 10, 15, -Math.PI/4, Math.PI/2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(m.x + 15, m.y + 10, 15, Math.PI/2, Math.PI + Math.PI/4); ctx.stroke();
+                ctx.restore();
+                ctx.fillStyle = "#ff0000"; for(let eye=0; eye<6; eye++) ctx.fillRect(m.x + (eye%3 - 1)*6 - 1, m.y - 12 + Math.floor(eye/3)*8 - 1, 2, 2);
+                ctx.fillStyle = "#ff8888"; ctx.fillRect(m.x-1, m.y-4, 2, 2);
+            }
+        }
+
+        ctx.save();
+        ctx.translate(game.player.x, game.player.y);
+        ctx.rotate(game.player.angle);
+        ctx.fillStyle = game.player.flashFrames > 0 ? "#ef4444" : "#b58750";
+        ctx.fillRect(-game.player.size/2, -game.player.size/2, game.player.size, game.player.size);
+        ctx.fillStyle = "#1a202c"; ctx.fillRect(-game.player.size/2, -game.player.size/2, 4, game.player.size);
+
+        if (game.weapon !== 'Fist') {
+            ctx.fillStyle = game.weapon === 'Wood Sword' ? '#8a5a36' : '#cbd5e0';
+            ctx.fillRect(6, -2, 14, 4); 
+        }
+
+        if (game.player.isAttacking) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.beginPath(); ctx.arc(16, 0, 16, -Math.PI/2, Math.PI/2); ctx.fill();
+            game.player.attackTimer--;
+            if (game.player.attackTimer <= 0) game.player.isAttacking = false;
+        }
+        ctx.restore();
+    }
+
+    function mainLoop() {
+        moveEntities(); draw(); updateUI();
+        requestAnimationFrame(mainLoop);
+    }
+
+    initializeShapes();
+    spawnResources(); 
+    setInterval(gameTimerTick, 1000);
+    mainLoop();
+    triggerRpgText("Game Started! You are stranded on a lone island. Daylight is short, gather resources on the grass and prepare before nighttime!");
+</script>
+
+</body>
+</html>
